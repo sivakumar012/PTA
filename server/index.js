@@ -47,6 +47,7 @@ app.use('/api/auth',     require('./routes/auth'));
 app.use('/api/teachers', require('./routes/teachers'));
 app.use('/api/slots',    require('./routes/slots'));
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/schools',  require('./routes/schools'));
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, '..', 'index.html')));

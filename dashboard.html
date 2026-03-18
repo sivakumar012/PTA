@@ -173,7 +173,7 @@
     selectedSlotId = slot.id;
     selectedSlotInfo = { slot, teacher };
     document.getElementById('modal-slot-info').textContent =
-      `${teacher.name} · ${App.formatDate(slot.date)} at ${App.formatTime(slot.time)} (10 min, in-person)`;
+      `${teacher.name} · ${App.formatDate(slot.date)} at ${App.formatTime(slot.time)} (${slot.duration_minutes || 10} min, in-person)`;
     document.getElementById('modal-child-name').value = currentUser.childName || '';
     document.getElementById('modal-child-class').value = currentUser.childClass || '';
     document.getElementById('modal-notes').value = '';

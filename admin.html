@@ -14,6 +14,7 @@
     <a href="#" class="active" onclick="showView('bookings')">All Bookings</a>
     <a href="#" onclick="showView('slots')">Manage Slots</a>
     <a href="#" onclick="showView('teachers')">Teachers</a>
+    <a href="#" onclick="showView('schools')">Schools</a>
     <a href="#" onclick="App.logout()">Sign Out</a>
   </div>
 </nav>
@@ -73,6 +74,10 @@
           <input type="time" id="new-slot-time" value="15:30" />
         </div>
       </div>
+      <div class="form-group mt-1" style="max-width:200px">
+        <label>Duration (minutes)</label>
+        <input type="number" id="new-slot-duration" value="10" min="5" max="60" step="5" />
+      </div>
       <div id="add-slot-alert" class="alert hidden mt-1"></div>
       <button class="btn btn-primary mt-2" onclick="addNewSlot()">+ Add Slot</button>
     </div>
@@ -88,7 +93,7 @@
         </div>
       </div>
       <table>
-        <thead><tr><th>Teacher</th><th>Date</th><th>Time</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Teacher</th><th>Date</th><th>Time</th><th>Duration</th><th>Status</th><th></th></tr></thead>
         <tbody id="slots-tbody"></tbody>
       </table>
       <div id="slots-empty" class="empty hidden"><p>No slots found.</p></div>
@@ -104,7 +109,11 @@
       <div class="card-title">Add Teacher</div>
       <div class="grid-2">
         <div class="form-group" style="margin:0">
-          <label>Name</label>
+          <label>Teacher Email <span class="text-muted text-sm">(primary identifier)</span></label>
+          <input type="email" id="t-email" placeholder="teacher@school.edu" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Full Name</label>
           <input type="text" id="t-name" placeholder="Full name" />
         </div>
         <div class="form-group" style="margin:0">
@@ -112,10 +121,12 @@
           <input type="text" id="t-subject" placeholder="e.g. Mathematics" />
         </div>
         <div class="form-group" style="margin:0">
-          <label>Email</label>
-          <input type="email" id="t-email" placeholder="teacher@school.edu" />
+          <label>School</label>
+          <select id="t-school">
+            <option value="">No school assigned</option>
+          </select>
         </div>
-        <div class="form-group" style="margin:0">
+        <div class="form-group" style="margin:0;grid-column:1/-1">
           <label>Classes (comma-separated)</label>
           <input type="text" id="t-classes" placeholder="Grade 3A, Grade 4B" />
         </div>
@@ -126,9 +137,39 @@
 
     <div class="card mt-2">
       <table>
-        <thead><tr><th>Name</th><th>Subject</th><th>Classes</th><th>Email</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Subject</th><th>School</th><th>Classes</th><th>Email</th><th></th></tr></thead>
         <tbody id="teachers-tbody"></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ── Schools ── -->
+  <div id="view-schools" class="hidden">
+    <p class="page-title">Schools</p>
+    <p class="page-sub">Manage schools. Teachers can be assigned to a school.</p>
+
+    <div class="card">
+      <div class="card-title">Add School</div>
+      <div class="grid-2">
+        <div class="form-group" style="margin:0">
+          <label>School Name</label>
+          <input type="text" id="s-name" placeholder="e.g. Springfield Elementary" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Address (optional)</label>
+          <input type="text" id="s-address" placeholder="123 Main St" />
+        </div>
+      </div>
+      <div id="school-alert" class="alert hidden mt-1"></div>
+      <button class="btn btn-primary mt-2" onclick="addSchool()">+ Add School</button>
+    </div>
+
+    <div class="card mt-2">
+      <table>
+        <thead><tr><th>Name</th><th>Address</th><th></th></tr></thead>
+        <tbody id="schools-tbody"></tbody>
+      </table>
+      <div id="schools-empty" class="empty hidden"><p>No schools yet.</p></div>
     </div>
   </div>
 
@@ -229,6 +270,7 @@
         <td class="fw-600">${teacher?.name || '—'}</td>
         <td>${App.formatDate(slot.date)}</td>
         <td>${App.formatTime(slot.time)}</td>
+        <td>${slot.duration_minutes || 10} min</td>
         <td>${statusBadge}</td>
         <td>${!slot.cancelled_by_admin && !slot.booked_by
           ? `<button class="btn btn-danger btn-sm" onclick="removeSlot('${slot.id}')">Remove</button>`
@@ -242,6 +284,7 @@
     const teacherId = document.getElementById('new-slot-teacher').value;
     const date      = document.getElementById('new-slot-date').value;
     const time      = document.getElementById('new-slot-time').value;
+    const duration  = document.getElementById('new-slot-duration').value;
     const alertEl   = document.getElementById('add-slot-alert');
 
     if (!teacherId || !date || !time) {
@@ -249,8 +292,8 @@
       alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
     }
     try {
-      await App.addSlot(teacherId, date, time);
-      alertEl.textContent = 'Slot added successfully.';
+      await App.addSlot(teacherId, date, time, duration);
+      alertEl.textContent = `Slot added (${duration} min).`;
       alertEl.className = 'alert alert-success'; alertEl.classList.remove('hidden');
       setTimeout(() => alertEl.classList.add('hidden'), 2000);
       await renderSlots();
@@ -276,6 +319,7 @@
       tr.innerHTML = `
         <td class="fw-600">${t.name}</td>
         <td>${t.subject}</td>
+        <td class="text-sm text-muted">${t.school_name || '—'}</td>
         <td>${t.classes.map(c => `<span class="badge badge-blue" style="margin-right:3px">${c}</span>`).join('')}</td>
         <td class="text-sm text-muted">${t.email}</td>
         <td><button class="btn btn-danger btn-sm" onclick="removeTeacher('${t.id}')">Remove</button></td>`;
@@ -284,22 +328,24 @@
   }
 
   async function addTeacher() {
+    const email   = document.getElementById('t-email').value.trim();
     const name    = document.getElementById('t-name').value.trim();
     const subject = document.getElementById('t-subject').value.trim();
-    const email   = document.getElementById('t-email').value.trim();
+    const schoolId = document.getElementById('t-school').value;
     const classes = document.getElementById('t-classes').value.split(',').map(c => c.trim()).filter(Boolean);
     const alertEl = document.getElementById('teacher-alert');
 
-    if (!name || !subject || !email || !classes.length) {
-      alertEl.textContent = 'Please fill in all fields.';
+    if (!email || !name || !subject || !classes.length) {
+      alertEl.textContent = 'Please fill in email, name, subject and classes.';
       alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
     }
     try {
-      await App.addTeacher(name, subject, email, classes);
+      await App.addTeacher(name, subject, email, classes, schoolId || null);
       alertEl.textContent = 'Teacher added.';
       alertEl.className = 'alert alert-success'; alertEl.classList.remove('hidden');
       setTimeout(() => alertEl.classList.add('hidden'), 2000);
       ['t-name','t-subject','t-email','t-classes'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('t-school').value = '';
       await renderTeachers();
       await populateTeacherDropdowns();
     } catch (e) {
@@ -318,19 +364,78 @@
 
   // ── View switching ────────────────────────────────────────────────────────
   function showView(view) {
-    ['bookings','slots','teachers'].forEach(v => {
+    ['bookings','slots','teachers','schools'].forEach(v => {
       document.getElementById('view-' + v).classList.toggle('hidden', v !== view);
     });
     document.querySelectorAll('nav .nav-links a').forEach((a, i) => {
-      a.classList.toggle('active', ['bookings','slots','teachers'][i] === view);
+      a.classList.toggle('active', ['bookings','slots','teachers','schools'][i] === view);
     });
     if (view === 'bookings') renderBookings();
     if (view === 'slots')    renderSlots();
     if (view === 'teachers') renderTeachers();
+    if (view === 'schools')  renderSchools();
+  }
+
+  // ── Schools ───────────────────────────────────────────────────────────────
+  async function renderSchools() {
+    const schools = await App.getSchools();
+    const tbody   = document.getElementById('schools-tbody');
+    const emptyEl = document.getElementById('schools-empty');
+    tbody.innerHTML = '';
+    if (!schools.length) { emptyEl.classList.remove('hidden'); return; }
+    emptyEl.classList.add('hidden');
+    schools.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="fw-600">${s.name}</td>
+        <td class="text-sm text-muted">${s.address || '—'}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeSchool('${s.id}')">Remove</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function addSchool() {
+    const name    = document.getElementById('s-name').value.trim();
+    const address = document.getElementById('s-address').value.trim();
+    const alertEl = document.getElementById('school-alert');
+    if (!name) {
+      alertEl.textContent = 'School name is required.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    try {
+      await App.addSchool(name, address);
+      alertEl.textContent = 'School added.';
+      alertEl.className = 'alert alert-success'; alertEl.classList.remove('hidden');
+      setTimeout(() => alertEl.classList.add('hidden'), 2000);
+      document.getElementById('s-name').value = '';
+      document.getElementById('s-address').value = '';
+      await renderSchools();
+      await populateSchoolDropdown();
+    } catch (e) {
+      alertEl.textContent = e.message;
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden');
+    }
+  }
+
+  async function removeSchool(id) {
+    if (!confirm('Remove this school?')) return;
+    await App.removeSchool(id);
+    await renderSchools();
+    await populateSchoolDropdown();
+  }
+
+  async function populateSchoolDropdown() {
+    const schools = await App.getSchools();
+    const sel = document.getElementById('t-school');
+    sel.innerHTML = '<option value="">No school assigned</option>';
+    schools.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = s.name; sel.appendChild(o);
+    });
   }
 
   // Init
-  populateTeacherDropdowns().then(() => renderBookings());
+  Promise.all([populateTeacherDropdowns(), populateSchoolDropdown()]).then(() => renderBookings());
 </script>
 </body>
 </html>

@@ -32,12 +32,19 @@ async function init() {
     child_class TEXT
   )`);
 
+  await db.run2(`CREATE TABLE IF NOT EXISTS schools (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    address TEXT
+  )`);
+
   await db.run2(`CREATE TABLE IF NOT EXISTS teachers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     subject TEXT NOT NULL,
-    email TEXT NOT NULL,
-    classes TEXT NOT NULL
+    email TEXT UNIQUE NOT NULL,
+    classes TEXT NOT NULL,
+    school_id TEXT REFERENCES schools(id) ON DELETE SET NULL
   )`);
 
   await db.run2(`CREATE TABLE IF NOT EXISTS slots (
@@ -50,6 +57,7 @@ async function init() {
     child_class TEXT,
     notes TEXT,
     cancelled_by_admin INTEGER NOT NULL DEFAULT 0,
+    duration_minutes INTEGER NOT NULL DEFAULT 10,
     UNIQUE(teacher_id, date, time)
   )`);
 
@@ -70,14 +78,18 @@ async function seed() {
   await db.run2('INSERT INTO users (id,name,email,password,role,child_name,child_class) VALUES (?,?,?,?,?,?,?)',
     [parentId, 'Alice Parent', 'alice@parent.com', bcrypt.hashSync('parent123', 10), 'parent', 'Emma', 'Grade 3A']);
 
+  const schoolId = uuid();
+  await db.run2('INSERT INTO schools (id,name,address) VALUES (?,?,?)',
+    [schoolId, 'Springfield Elementary', '123 Main St']);
+
   const teachers = [
-    { id: uuid(), name: 'Mr. Johnson',  subject: 'Mathematics', email: 'johnson@school.edu',  classes: 'Grade 3A,Grade 4B' },
-    { id: uuid(), name: 'Ms. Williams', subject: 'English',     email: 'williams@school.edu', classes: 'Grade 4B,Grade 5C' },
-    { id: uuid(), name: 'Mrs. Davis',   subject: 'Science',     email: 'davis@school.edu',    classes: 'Grade 3A,Grade 5C' },
+    { id: uuid(), name: 'Mr. Johnson',  subject: 'Mathematics', email: 'johnson@school.edu',  classes: 'Grade 3A,Grade 4B', school_id: schoolId },
+    { id: uuid(), name: 'Ms. Williams', subject: 'English',     email: 'williams@school.edu', classes: 'Grade 4B,Grade 5C', school_id: schoolId },
+    { id: uuid(), name: 'Mrs. Davis',   subject: 'Science',     email: 'davis@school.edu',    classes: 'Grade 3A,Grade 5C', school_id: schoolId },
   ];
   for (const t of teachers) {
-    await db.run2('INSERT INTO teachers (id,name,subject,email,classes) VALUES (?,?,?,?,?)',
-      [t.id, t.name, t.subject, t.email, t.classes]);
+    await db.run2('INSERT INTO teachers (id,name,subject,email,classes,school_id) VALUES (?,?,?,?,?,?)',
+      [t.id, t.name, t.subject, t.email, t.classes, t.school_id]);
   }
 
   const times = ['09:00','09:10','09:20','15:30','15:40','15:50'];

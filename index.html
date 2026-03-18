@@ -29,10 +29,6 @@
         <input type="password" id="login-password" placeholder="••••••••" />
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Sign In</button>
-      <p class="text-sm text-muted mt-2" style="text-align:center">
-        Demo: <code>alice@parent.com</code> / <code>parent123</code><br/>
-        Admin: <code>admin@school.edu</code> / <code>admin123</code>
-      </p>
     </div>
 
     <!-- Register form -->
@@ -57,10 +53,7 @@
       <div class="form-group">
         <label>Child's Class</label>
         <select id="reg-class">
-          <option value="">Select class</option>
-          <option>Grade 3A</option>
-          <option>Grade 4B</option>
-          <option>Grade 5C</option>
+          <option value="">Loading classes...</option>
         </select>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="doRegister()">Create Account</button>
@@ -73,6 +66,18 @@
   // Redirect if already logged in
   App.getCurrentUser().then(u => {
     if (u) window.location.href = u.role === 'admin' ? 'admin.html' : 'dashboard.html';
+  });
+
+  // Load classes for register dropdown (public endpoint)
+  fetch('/api/teachers/classes').then(r => r.json()).then(classes => {
+    const sel = document.getElementById('reg-class');
+    sel.innerHTML = '<option value="">Select class</option>';
+    classes.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c; sel.appendChild(o);
+    });
+  }).catch(() => {
+    document.getElementById('reg-class').innerHTML = '<option value="">Select class</option>';
   });
 
   function showTab(tab) {

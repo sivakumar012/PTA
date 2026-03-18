@@ -16,12 +16,13 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 router.post('/', requireAdmin, async (req, res) => {
-  const { teacherId, date, time } = req.body;
+  const { teacherId, date, time, duration } = req.body;
   if (!teacherId || !date || !time)
     return res.status(400).json({ error: 'teacherId, date and time are required' });
   try {
     const id = uuid();
-    await db.run2('INSERT INTO slots (id,teacher_id,date,time) VALUES (?,?,?,?)', [id, teacherId, date, time]);
+    const dur = parseInt(duration) || 10;
+    await db.run2('INSERT INTO slots (id,teacher_id,date,time,duration_minutes) VALUES (?,?,?,?,?)', [id, teacherId, date, time, dur]);
     res.status(201).json(await db.get2('SELECT * FROM slots WHERE id = ?', [id]));
   } catch (e) {
     if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Slot already exists' });

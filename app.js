@@ -64,8 +64,8 @@ async function getTeacherById(id) {
   return list.find(t => t.id === id) || null;
 }
 
-async function addTeacher(name, subject, email, classes) {
-  const t = await apiFetch('/teachers', { method: 'POST', body: JSON.stringify({ name, subject, email, classes }) });
+async function addTeacher(name, subject, email, classes, schoolId) {
+  const t = await apiFetch('/teachers', { method: 'POST', body: JSON.stringify({ name, subject, email, classes, schoolId }) });
   invalidateTeachers();
   return t;
 }
@@ -87,8 +87,8 @@ async function getSlots(teacherId, date) {
 
 function invalidateSlots() { _slots = null; }
 
-async function addSlot(teacherId, date, time) {
-  const s = await apiFetch('/slots', { method: 'POST', body: JSON.stringify({ teacherId, date, time }) });
+async function addSlot(teacherId, date, time, duration) {
+  const s = await apiFetch('/slots', { method: 'POST', body: JSON.stringify({ teacherId, date, time, duration: duration || 10 }) });
   return s.id;
 }
 
@@ -137,11 +137,30 @@ function formatTime(t) {
   return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
 }
 
+// ─── Schools ──────────────────────────────────────────────────────────────────
+async function getSchools() {
+  return apiFetch('/schools');
+}
+
+async function addSchool(name, address) {
+  const s = await apiFetch('/schools', { method: 'POST', body: JSON.stringify({ name, address }) });
+  return s;
+}
+
+async function removeSchool(id) {
+  await apiFetch('/schools/' + id, { method: 'DELETE' });
+}
+
+async function getClasses() {
+  return apiFetch('/teachers/classes');
+}
+
 // ─── Expose globally ─────────────────────────────────────────────────────────
 window.App = {
   login, logout, getCurrentUser, requireAuth, registerParent,
   getTeachers, getTeacherById, addTeacher, removeTeacher, invalidateTeachers,
   getSlots, addSlot, removeSlot, invalidateSlots,
   bookSlot, cancelSlot, getMyBookings, getAllBookings, getBookingStats,
+  getSchools, addSchool, removeSchool, getClasses,
   formatDate, formatTime,
 };
