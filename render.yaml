@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: pt-scheduler
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DB_PATH
+        value: /opt/render/project/data/scheduler.db
+    disk:
+      name: scheduler-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1

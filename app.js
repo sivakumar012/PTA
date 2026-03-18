@@ -1,5 +1,5 @@
 // ─── API client – replaces localStorage with real backend calls ──────────────
-const API = 'http://localhost:3000/api';
+const API = '/api';
 
 // In-memory cache so pages don't re-fetch on every render
 let _teachers = null;
