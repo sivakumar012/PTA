@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parent Dashboard – PT Scheduler</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <span class="brand">📅 PT Scheduler</span>
+  <div class="nav-links">
+    <a href="#" class="active" onclick="showView('book')">Book a Slot</a>
+    <a href="#" onclick="showView('mybookings')">My Bookings</a>
+    <a href="#" onclick="App.logout()">Sign Out</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div id="view-book">
+    <p class="page-title" id="welcome-msg"></p>
+    <p class="page-sub">Select a teacher and pick a 10-minute slot for an in-person meeting.</p>
+
+    <!-- Filters -->
+    <div class="card">
+      <div class="grid-2">
+        <div class="form-group" style="margin:0">
+          <label>Filter by Class</label>
+          <select id="filter-class" onchange="renderTeachers()">
+            <option value="">All Classes</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Filter by Date</label>
+          <input type="date" id="filter-date" onchange="renderTeachers()" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Teacher list -->
+    <div id="teacher-list"></div>
+  </div>
+
+  <div id="view-mybookings" class="hidden">
+    <p class="page-title">My Bookings</p>
+    <p class="page-sub">Your upcoming and past appointments.</p>
+    <div id="my-bookings-list"></div>
+  </div>
+</div>
+
+<!-- Booking modal -->
+<div id="booking-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>Confirm Booking</h2>
+    <div id="modal-slot-info" class="alert alert-info" style="margin-bottom:1rem"></div>
+    <div class="form-group">
+      <label>Child's Name</label>
+      <input type="text" id="modal-child-name" />
+    </div>
+    <div class="form-group">
+      <label>Child's Class</label>
+      <input type="text" id="modal-child-class" />
+    </div>
+    <div class="form-group">
+      <label>Notes for teacher (optional)</label>
+      <input type="text" id="modal-notes" placeholder="e.g. Concerns about homework" />
+    </div>
+    <div id="modal-alert" class="alert alert-error hidden"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-success" onclick="confirmBooking()">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+  let currentUser = null;
+  let selectedSlotId = null;
+  let selectedSlotInfo = null;
+
+  async function init() {
+    currentUser = await App.requireAuth('parent');
+    if (!currentUser) return;
+    document.getElementById('welcome-msg').textContent = `Hello, ${currentUser.name} 👋`;
+    await initFilters();
+    await renderTeachers();
+  }
+
+  async function initFilters() {
+    const teachers = await App.getTeachers();
+    const classes = [...new Set(teachers.flatMap(t => t.classes))].sort();
+    const sel = document.getElementById('filter-class');
+    classes.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c; sel.appendChild(o);
+    });
+    document.getElementById('filter-date').value = new Date().toISOString().split('T')[0];
+  }
+
+  async function renderTeachers() {
+    const filterClass = document.getElementById('filter-class').value;
+    const filterDate  = document.getElementById('filter-date').value;
+    const container   = document.getElementById('teacher-list');
+    container.innerHTML = '<div class="empty"><p>Loading...</p></div>';
+
+    const [teachers, allSlots] = await Promise.all([
+      App.getTeachers(),
+      App.getSlots(null, filterDate || null),
+    ]);
+
+    container.innerHTML = '';
+    const filtered = teachers.filter(t => !filterClass || t.classes.includes(filterClass));
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="empty"><p>No teachers found for this class.</p></div>';
+      return;
+    }
+
+    filtered.forEach(teacher => {
+      const slots = allSlots.filter(s =>
+        s.teacher_id === teacher.id && !s.cancelled_by_admin
+      );
+
+      const byDate = {};
+      slots.forEach(s => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+      const dates = Object.keys(byDate).sort();
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="card-title">${teacher.name}</div>
+            <div class="text-sm text-muted">${teacher.subject} &nbsp;·&nbsp; ${teacher.classes.join(', ')}</div>
+          </div>
+          <div>${teacher.classes.map(c => `<span class="badge badge-blue" style="margin-left:4px">${c}</span>`).join('')}</div>
+        </div>`;
+
+      if (!dates.length) {
+        card.innerHTML += `<p class="text-sm text-muted mt-2">No available slots for selected date.</p>`;
+      } else {
+        dates.forEach(date => {
+          const dateSlots = byDate[date].sort((a,b) => a.time.localeCompare(b.time));
+          const dateDiv = document.createElement('div');
+          dateDiv.className = 'mt-2';
+          dateDiv.innerHTML = `<div class="text-sm fw-600" style="margin-bottom:0.4rem">${App.formatDate(date)}</div>`;
+          const slotGrid = document.createElement('div');
+          slotGrid.className = 'slot-grid';
+          dateSlots.forEach(slot => {
+            const btn = document.createElement('button');
+            btn.className = 'slot-btn';
+            btn.textContent = App.formatTime(slot.time);
+            if (slot.booked_by === currentUser.id) {
+              btn.classList.add('mine'); btn.title = 'Your booking';
+            } else if (slot.booked_by) {
+              btn.classList.add('booked'); btn.disabled = true; btn.title = 'Already booked';
+            } else {
+              btn.onclick = () => openModal(slot, teacher);
+            }
+            slotGrid.appendChild(btn);
+          });
+          dateDiv.appendChild(slotGrid);
+          card.appendChild(dateDiv);
+        });
+      }
+      container.appendChild(card);
+    });
+  }
+
+  function openModal(slot, teacher) {
+    selectedSlotId = slot.id;
+    selectedSlotInfo = { slot, teacher };
+    document.getElementById('modal-slot-info').textContent =
+      `${teacher.name} · ${App.formatDate(slot.date)} at ${App.formatTime(slot.time)} (10 min, in-person)`;
+    document.getElementById('modal-child-name').value = currentUser.childName || '';
+    document.getElementById('modal-child-class').value = currentUser.childClass || '';
+    document.getElementById('modal-notes').value = '';
+    document.getElementById('modal-alert').classList.add('hidden');
+    document.getElementById('booking-modal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('booking-modal').classList.add('hidden');
+    selectedSlotId = null;
+  }
+
+  async function confirmBooking() {
+    const childName  = document.getElementById('modal-child-name').value.trim();
+    const childClass = document.getElementById('modal-child-class').value.trim();
+    const notes      = document.getElementById('modal-notes').value.trim();
+    const alertEl    = document.getElementById('modal-alert');
+
+    if (!childName || !childClass) {
+      alertEl.textContent = 'Please fill in child name and class.';
+      alertEl.classList.remove('hidden'); return;
+    }
+
+    const ok = await App.bookSlot(selectedSlotId, childName, childClass, notes);
+    if (!ok) {
+      alertEl.textContent = 'This slot was just taken. Please choose another.';
+      alertEl.classList.remove('hidden'); return;
+    }
+
+    closeModal();
+    await renderTeachers();
+    showView('mybookings');
+  }
+
+  async function renderMyBookings() {
+    const container = document.getElementById('my-bookings-list');
+    container.innerHTML = '<div class="empty"><p>Loading...</p></div>';
+
+    const [slots, teachers] = await Promise.all([App.getMyBookings(), App.getTeachers()]);
+    container.innerHTML = '';
+
+    if (!slots.length) {
+      container.innerHTML = `<div class="empty"><p>No bookings yet. Go book a slot with a teacher.</p></div>`;
+      return;
+    }
+
+    const teacherMap = Object.fromEntries(teachers.map(t => [t.id, t]));
+    const sorted = slots.sort((a,b) => (a.date + a.time).localeCompare(b.date + b.time));
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<table><thead><tr>
+      <th>Teacher</th><th>Date</th><th>Time</th><th>Child</th><th>Notes</th><th></th>
+    </tr></thead><tbody id="bookings-tbody"></tbody></table>`;
+    container.appendChild(card);
+
+    const tbody = document.getElementById('bookings-tbody');
+    sorted.forEach(slot => {
+      const teacher = teacherMap[slot.teacher_id];
+      const isPast  = new Date(slot.date + 'T' + slot.time) < new Date();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><div class="fw-600">${teacher?.name || '—'}</div><div class="text-sm text-muted">${teacher?.subject || ''}</div></td>
+        <td>${App.formatDate(slot.date)}</td>
+        <td>${App.formatTime(slot.time)}</td>
+        <td>${slot.child_name}<br/><span class="badge badge-blue">${slot.child_class}</span></td>
+        <td class="text-sm text-muted">${slot.notes || '—'}</td>
+        <td>${isPast
+          ? `<span class="badge badge-gray">Past</span>`
+          : `<button class="btn btn-danger btn-sm" onclick="cancelMyBooking('${slot.id}')">Cancel</button>`
+        }</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function cancelMyBooking(slotId) {
+    if (!confirm('Cancel this booking?')) return;
+    await App.cancelSlot(slotId);
+    await renderMyBookings();
+    await renderTeachers();
+  }
+
+  function showView(view) {
+    document.getElementById('view-book').classList.toggle('hidden', view !== 'book');
+    document.getElementById('view-mybookings').classList.toggle('hidden', view !== 'mybookings');
+    document.querySelectorAll('nav .nav-links a').forEach((a, i) => {
+      a.classList.toggle('active', (view === 'book' && i === 0) || (view === 'mybookings' && i === 1));
+    });
+    if (view === 'mybookings') renderMyBookings();
+    if (view === 'book') renderTeachers();
+  }
+
+  init();
+</script>
+</body>
+</html>

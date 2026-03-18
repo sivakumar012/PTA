@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin – PT Scheduler</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav>
+  <span class="brand">📅 PT Scheduler <span class="badge badge-blue" style="font-size:0.7rem;margin-left:6px">Admin</span></span>
+  <div class="nav-links">
+    <a href="#" class="active" onclick="showView('bookings')">All Bookings</a>
+    <a href="#" onclick="showView('slots')">Manage Slots</a>
+    <a href="#" onclick="showView('teachers')">Teachers</a>
+    <a href="#" onclick="App.logout()">Sign Out</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- ── All Bookings ── -->
+  <div id="view-bookings">
+    <p class="page-title">All Bookings</p>
+    <p class="page-sub">Overview of every scheduled parent-teacher meeting.</p>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div class="grid-2">
+        <div class="form-group" style="margin:0">
+          <label>Filter by Teacher</label>
+          <select id="bk-filter-teacher" onchange="renderBookings()">
+            <option value="">All Teachers</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Filter by Date</label>
+          <input type="date" id="bk-filter-date" onchange="renderBookings()" />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="bookings-summary" class="flex gap-1" style="margin-bottom:1rem;flex-wrap:wrap"></div>
+      <table>
+        <thead><tr>
+          <th>Teacher</th><th>Date</th><th>Time</th><th>Parent</th><th>Child</th><th>Class</th><th>Notes</th><th></th>
+        </tr></thead>
+        <tbody id="all-bookings-tbody"></tbody>
+      </table>
+      <div id="bookings-empty" class="empty hidden"><p>No bookings match the filter.</p></div>
+    </div>
+  </div>
+
+  <!-- ── Manage Slots ── -->
+  <div id="view-slots" class="hidden">
+    <p class="page-title">Manage Slots</p>
+    <p class="page-sub">Add or remove available 10-minute slots for teachers.</p>
+
+    <div class="card">
+      <div class="card-title">Add New Slot</div>
+      <div class="grid-3">
+        <div class="form-group" style="margin:0">
+          <label>Teacher</label>
+          <select id="new-slot-teacher"></select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Date</label>
+          <input type="date" id="new-slot-date" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Start Time</label>
+          <input type="time" id="new-slot-time" value="15:30" />
+        </div>
+      </div>
+      <div id="add-slot-alert" class="alert hidden mt-1"></div>
+      <button class="btn btn-primary mt-2" onclick="addNewSlot()">+ Add Slot</button>
+    </div>
+
+    <div class="card mt-2">
+      <div class="flex items-center justify-between" style="margin-bottom:0.75rem">
+        <div class="card-title" style="margin:0">Existing Slots</div>
+        <div class="flex gap-1">
+          <select id="slot-filter-teacher" onchange="renderSlots()" style="padding:0.35rem 0.6rem;border:1.5px solid #e2e8f0;border-radius:6px;font-size:0.85rem">
+            <option value="">All Teachers</option>
+          </select>
+          <input type="date" id="slot-filter-date" onchange="renderSlots()" style="padding:0.35rem 0.6rem;border:1.5px solid #e2e8f0;border-radius:6px;font-size:0.85rem" />
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>Teacher</th><th>Date</th><th>Time</th><th>Status</th><th></th></tr></thead>
+        <tbody id="slots-tbody"></tbody>
+      </table>
+      <div id="slots-empty" class="empty hidden"><p>No slots found.</p></div>
+    </div>
+  </div>
+
+  <!-- ── Teachers ── -->
+  <div id="view-teachers" class="hidden">
+    <p class="page-title">Teachers</p>
+    <p class="page-sub">Manage teacher profiles.</p>
+
+    <div class="card">
+      <div class="card-title">Add Teacher</div>
+      <div class="grid-2">
+        <div class="form-group" style="margin:0">
+          <label>Name</label>
+          <input type="text" id="t-name" placeholder="Full name" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Subject</label>
+          <input type="text" id="t-subject" placeholder="e.g. Mathematics" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Email</label>
+          <input type="email" id="t-email" placeholder="teacher@school.edu" />
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Classes (comma-separated)</label>
+          <input type="text" id="t-classes" placeholder="Grade 3A, Grade 4B" />
+        </div>
+      </div>
+      <div id="teacher-alert" class="alert hidden mt-1"></div>
+      <button class="btn btn-primary mt-2" onclick="addTeacher()">+ Add Teacher</button>
+    </div>
+
+    <div class="card mt-2">
+      <table>
+        <thead><tr><th>Name</th><th>Subject</th><th>Classes</th><th>Email</th><th></th></tr></thead>
+        <tbody id="teachers-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+  App.requireAuth('admin');
+
+  async function populateTeacherDropdowns() {
+    const teachers = await App.getTeachers();
+    ['bk-filter-teacher','new-slot-teacher','slot-filter-teacher'].forEach(id => {
+      const sel = document.getElementById(id);
+      while (sel.options.length > 1) sel.remove(1);
+      teachers.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.id; o.textContent = t.name; sel.appendChild(o);
+      });
+    });
+  }
+
+  // ── Bookings ──────────────────────────────────────────────────────────────
+  async function renderBookings() {
+    const filterTeacher = document.getElementById('bk-filter-teacher').value;
+    const filterDate    = document.getElementById('bk-filter-date').value;
+    const tbody         = document.getElementById('all-bookings-tbody');
+    const emptyEl       = document.getElementById('bookings-empty');
+    tbody.innerHTML = '';
+
+    const [bookings, stats, teachers] = await Promise.all([
+      App.getAllBookings(filterTeacher || null, filterDate || null),
+      App.getBookingStats(),
+      App.getTeachers(),
+    ]);
+    const teacherMap = Object.fromEntries(teachers.map(t => [t.id, t]));
+
+    document.getElementById('bookings-summary').innerHTML = `
+      <span class="badge badge-green">Booked: ${stats.booked}</span>
+      <span class="badge badge-blue">Available: ${stats.available}</span>
+      <span class="badge badge-red">Cancelled: ${stats.cancelled}</span>`;
+
+    if (!bookings.length) { emptyEl.classList.remove('hidden'); return; }
+    emptyEl.classList.add('hidden');
+
+    bookings.forEach(slot => {
+      const teacher = teacherMap[slot.teacher_id];
+      const isPast  = new Date(slot.date + 'T' + slot.time) < new Date();
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="fw-600">${teacher?.name || '—'}</td>
+        <td>${App.formatDate(slot.date)}</td>
+        <td>${App.formatTime(slot.time)}</td>
+        <td>${slot.parent_name}</td>
+        <td>${slot.child_name}</td>
+        <td><span class="badge badge-blue">${slot.child_class}</span></td>
+        <td class="text-sm text-muted">${slot.notes || '—'}</td>
+        <td>${isPast
+          ? `<span class="badge badge-gray">Past</span>`
+          : `<button class="btn btn-danger btn-sm" onclick="adminCancel('${slot.id}')">Cancel</button>`
+        }</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function adminCancel(slotId) {
+    if (!confirm('Cancel this booking? The slot will become available again.')) return;
+    await App.cancelSlot(slotId);
+    await renderBookings();
+    await renderSlots();
+  }
+
+  // ── Slots ─────────────────────────────────────────────────────────────────
+  async function renderSlots() {
+    const filterTeacher = document.getElementById('slot-filter-teacher').value;
+    const filterDate    = document.getElementById('slot-filter-date').value;
+    const tbody         = document.getElementById('slots-tbody');
+    const emptyEl       = document.getElementById('slots-empty');
+    tbody.innerHTML = '';
+
+    const [slots, teachers] = await Promise.all([
+      App.getSlots(filterTeacher || null, filterDate || null),
+      App.getTeachers(),
+    ]);
+    const teacherMap = Object.fromEntries(teachers.map(t => [t.id, t]));
+
+    if (!slots.length) { emptyEl.classList.remove('hidden'); return; }
+    emptyEl.classList.add('hidden');
+
+    slots.forEach(slot => {
+      const teacher = teacherMap[slot.teacher_id];
+      let statusBadge;
+      if (slot.cancelled_by_admin) statusBadge = `<span class="badge badge-red">Cancelled</span>`;
+      else if (slot.booked_by)     statusBadge = `<span class="badge badge-green">Booked</span>`;
+      else                         statusBadge = `<span class="badge badge-blue">Available</span>`;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="fw-600">${teacher?.name || '—'}</td>
+        <td>${App.formatDate(slot.date)}</td>
+        <td>${App.formatTime(slot.time)}</td>
+        <td>${statusBadge}</td>
+        <td>${!slot.cancelled_by_admin && !slot.booked_by
+          ? `<button class="btn btn-danger btn-sm" onclick="removeSlot('${slot.id}')">Remove</button>`
+          : '—'
+        }</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function addNewSlot() {
+    const teacherId = document.getElementById('new-slot-teacher').value;
+    const date      = document.getElementById('new-slot-date').value;
+    const time      = document.getElementById('new-slot-time').value;
+    const alertEl   = document.getElementById('add-slot-alert');
+
+    if (!teacherId || !date || !time) {
+      alertEl.textContent = 'Please fill in all fields.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    try {
+      await App.addSlot(teacherId, date, time);
+      alertEl.textContent = 'Slot added successfully.';
+      alertEl.className = 'alert alert-success'; alertEl.classList.remove('hidden');
+      setTimeout(() => alertEl.classList.add('hidden'), 2000);
+      await renderSlots();
+    } catch (e) {
+      alertEl.textContent = e.message;
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden');
+    }
+  }
+
+  async function removeSlot(slotId) {
+    if (!confirm('Remove this slot?')) return;
+    await App.removeSlot(slotId);
+    await renderSlots();
+  }
+
+  // ── Teachers ──────────────────────────────────────────────────────────────
+  async function renderTeachers() {
+    const teachers = await App.getTeachers();
+    const tbody = document.getElementById('teachers-tbody');
+    tbody.innerHTML = '';
+    teachers.forEach(t => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="fw-600">${t.name}</td>
+        <td>${t.subject}</td>
+        <td>${t.classes.map(c => `<span class="badge badge-blue" style="margin-right:3px">${c}</span>`).join('')}</td>
+        <td class="text-sm text-muted">${t.email}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeTeacher('${t.id}')">Remove</button></td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function addTeacher() {
+    const name    = document.getElementById('t-name').value.trim();
+    const subject = document.getElementById('t-subject').value.trim();
+    const email   = document.getElementById('t-email').value.trim();
+    const classes = document.getElementById('t-classes').value.split(',').map(c => c.trim()).filter(Boolean);
+    const alertEl = document.getElementById('teacher-alert');
+
+    if (!name || !subject || !email || !classes.length) {
+      alertEl.textContent = 'Please fill in all fields.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    try {
+      await App.addTeacher(name, subject, email, classes);
+      alertEl.textContent = 'Teacher added.';
+      alertEl.className = 'alert alert-success'; alertEl.classList.remove('hidden');
+      setTimeout(() => alertEl.classList.add('hidden'), 2000);
+      ['t-name','t-subject','t-email','t-classes'].forEach(id => document.getElementById(id).value = '');
+      await renderTeachers();
+      await populateTeacherDropdowns();
+    } catch (e) {
+      alertEl.textContent = e.message;
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden');
+    }
+  }
+
+  async function removeTeacher(id) {
+    if (!confirm('Remove this teacher? Their slots will also be removed.')) return;
+    await App.removeTeacher(id);
+    await renderTeachers();
+    await populateTeacherDropdowns();
+    await renderSlots();
+  }
+
+  // ── View switching ────────────────────────────────────────────────────────
+  function showView(view) {
+    ['bookings','slots','teachers'].forEach(v => {
+      document.getElementById('view-' + v).classList.toggle('hidden', v !== view);
+    });
+    document.querySelectorAll('nav .nav-links a').forEach((a, i) => {
+      a.classList.toggle('active', ['bookings','slots','teachers'][i] === view);
+    });
+    if (view === 'bookings') renderBookings();
+    if (view === 'slots')    renderSlots();
+    if (view === 'teachers') renderTeachers();
+  }
+
+  // Init
+  populateTeacherDropdowns().then(() => renderBookings());
+</script>
+</body>
+</html>
