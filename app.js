@@ -137,6 +137,13 @@ function formatTime(t) {
   return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
 }
 
+async function changePassword(current, newPass) {
+  try {
+    await apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify({ current, newPass }) });
+    return { ok: true };
+  } catch (e) { return { ok: false, error: e.message }; }
+}
+
 // ─── Schools ──────────────────────────────────────────────────────────────────
 async function getSchools() {
   return apiFetch('/schools');
@@ -157,7 +164,7 @@ async function getClasses() {
 
 // ─── Expose globally ─────────────────────────────────────────────────────────
 window.App = {
-  login, logout, getCurrentUser, requireAuth, registerParent,
+  login, logout, getCurrentUser, requireAuth, registerParent, changePassword,
   getTeachers, getTeacherById, addTeacher, removeTeacher, invalidateTeachers,
   getSlots, addSlot, removeSlot, invalidateSlots,
   bookSlot, cancelSlot, getMyBookings, getAllBookings, getBookingStats,

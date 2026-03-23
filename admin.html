@@ -177,7 +177,10 @@
 
 <script src="app.js"></script>
 <script>
-  App.requireAuth('admin');
+  App.requireAuth('admin').then(user => {
+    if (user && user.mustChangePassword) showChangePasswordModal();
+  });
+
 
   async function populateTeacherDropdowns() {
     const teachers = await App.getTeachers();
@@ -376,8 +379,37 @@
     if (view === 'schools')  renderSchools();
   }
 
-  // ── Schools ───────────────────────────────────────────────────────────────
-  async function renderSchools() {
+  function showChangePasswordModal() {
+    document.getElementById('change-pw-modal').classList.remove('hidden');
+  }
+
+  async function submitChangePassword() {
+    const current  = document.getElementById('cp-current').value;
+    const newPass  = document.getElementById('cp-new').value;
+    const confirm  = document.getElementById('cp-confirm').value;
+    const alertEl  = document.getElementById('cp-alert');
+
+    if (!current || !newPass || !confirm) {
+      alertEl.textContent = 'Please fill in all fields.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    if (newPass !== confirm) {
+      alertEl.textContent = 'New passwords do not match.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    if (newPass.length < 8) {
+      alertEl.textContent = 'Password must be at least 8 characters.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    const result = await App.changePassword(current, newPass);
+    if (!result.ok) {
+      alertEl.textContent = result.error || 'Failed to change password.';
+      alertEl.className = 'alert alert-error'; alertEl.classList.remove('hidden'); return;
+    }
+    document.getElementById('change-pw-modal').classList.add('hidden');
+  }
+
+  // ── Schools ───────────────────────────────────────────────────────────────  async function renderSchools() {
     const schools = await App.getSchools();
     const tbody   = document.getElementById('schools-tbody');
     const emptyEl = document.getElementById('schools-empty');
@@ -437,5 +469,30 @@
   // Init
   Promise.all([populateTeacherDropdowns(), populateSchoolDropdown()]).then(() => renderBookings());
 </script>
+
+<!-- ── Change Password Modal ── -->
+<div id="change-pw-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>🔒 Change Your Password</h2>
+    <p class="text-sm text-muted" style="margin-bottom:1rem">You must set a new password before continuing.</p>
+    <div class="form-group">
+      <label>Current Password</label>
+      <input type="password" id="cp-current" placeholder="Current password" />
+    </div>
+    <div class="form-group">
+      <label>New Password <span class="text-muted text-sm">(min 8 characters)</span></label>
+      <input type="password" id="cp-new" placeholder="New password" />
+    </div>
+    <div class="form-group">
+      <label>Confirm New Password</label>
+      <input type="password" id="cp-confirm" placeholder="Confirm new password" />
+    </div>
+    <div id="cp-alert" class="alert hidden"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="submitChangePassword()">Update Password</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

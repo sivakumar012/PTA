@@ -24,6 +24,11 @@ async function init() {
   await db.run2('PRAGMA journal_mode = WAL');
   await db.run2('PRAGMA foreign_keys = ON');
 
+  // Migrate existing DBs that may not have must_change_password column
+  await db.run2(`ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 0`).catch(() => {});
+  // Migrate existing DBs that may not have duration_minutes column
+  await db.run2(`ALTER TABLE slots ADD COLUMN duration_minutes INTEGER NOT NULL DEFAULT 10`).catch(() => {});
+
   await db.run2(`CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -31,7 +36,8 @@ async function init() {
     password TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'parent',
     child_name TEXT,
-    child_class TEXT
+    child_class TEXT,
+    must_change_password INTEGER NOT NULL DEFAULT 0
   )`);
 
   await db.run2(`CREATE TABLE IF NOT EXISTS schools (
@@ -73,12 +79,12 @@ async function seed() {
   const adminExists = await db.get2('SELECT id FROM users WHERE email = ?', ['admin@school.edu']);
   if (adminExists) return;
 
-  await db.run2('INSERT INTO users (id,name,email,password,role) VALUES (?,?,?,?,?)',
-    [uuid(), 'Admin', 'admin@school.edu', bcrypt.hashSync('admin123', 10), 'admin']);
+  await db.run2('INSERT INTO users (id,name,email,password,role,must_change_password) VALUES (?,?,?,?,?,?)',
+    [uuid(), 'Admin', 'admin@school.edu', bcrypt.hashSync('admin123', 12), 'admin', 1]);
 
   const parentId = uuid();
   await db.run2('INSERT INTO users (id,name,email,password,role,child_name,child_class) VALUES (?,?,?,?,?,?,?)',
-    [parentId, 'Alice Parent', 'alice@parent.com', bcrypt.hashSync('parent123', 10), 'parent', 'Emma', 'Grade 3A']);
+    [parentId, 'Alice Parent', 'alice@parent.com', bcrypt.hashSync('parent123', 12), 'parent', 'Emma', 'Grade 3A']);
 
   const schoolId = uuid();
   await db.run2('INSERT INTO schools (id,name,address) VALUES (?,?,?)',
