@@ -258,8 +258,8 @@
     ]);
     const teacherMap = Object.fromEntries(teachers.map(t => [t.id, t]));
 
-    if (!slots.length) { emptyEl.classList.remove('hidden'); return; }
     emptyEl.classList.add('hidden');
+    if (!slots.length) { emptyEl.classList.remove('hidden'); return; }
 
     slots.forEach(slot => {
       const teacher = teacherMap[slot.teacher_id];
@@ -409,7 +409,8 @@
     document.getElementById('change-pw-modal').classList.add('hidden');
   }
 
-  // ── Schools ───────────────────────────────────────────────────────────────  async function renderSchools() {
+  // ── Schools ───────────────────────────────────────────────────────────────
+  async function renderSchools() {
     const schools = await App.getSchools();
     const tbody   = document.getElementById('schools-tbody');
     const emptyEl = document.getElementById('schools-empty');

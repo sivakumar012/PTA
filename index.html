@@ -10,7 +10,7 @@
 <div class="login-wrap">
   <div class="login-card">
     <h1>📅 PT Scheduler</h1>
-    <p>Book a 10-minute slot with your child's teacher</p>
+    <p>Book a slot with your child's teacher</p>
 
     <div class="role-tabs">
       <button class="role-tab active" id="tab-login" onclick="showTab('login')">Sign In</button>
@@ -44,7 +44,7 @@
       </div>
       <div class="form-group">
         <label>Password</label>
-        <input type="password" id="reg-password" placeholder="Min 6 characters" />
+        <input type="password" id="reg-password" placeholder="Min 8 characters" />
       </div>
       <div class="form-group">
         <label>Child's Name</label>
@@ -114,8 +114,8 @@
       alertEl.classList.remove('hidden');
       return;
     }
-    if (pass.length < 6) {
-      alertEl.textContent = 'Password must be at least 6 characters.';
+    if (pass.length < 8) {
+      alertEl.textContent = 'Password must be at least 8 characters.';
       alertEl.className = 'alert alert-error';
       alertEl.classList.remove('hidden');
       return;

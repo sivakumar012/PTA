@@ -2,9 +2,10 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = process.env.DB_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH
-  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH || '/data', 'scheduler.db')
-  : path.join(__dirname, '..', 'data', 'scheduler.db');
+const DB_PATH = process.env.DB_PATH ||
+  (process.env.RAILWAY_VOLUME_MOUNT_PATH
+    ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'scheduler.db')
+    : path.join(__dirname, '..', 'data', 'scheduler.db'));
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new sqlite3.Database(DB_PATH);

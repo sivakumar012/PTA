@@ -3,7 +3,6 @@ const API = '/api';
 
 // In-memory cache so pages don't re-fetch on every render
 let _teachers = null;
-let _slots    = null;
 let _user     = null;
 
 async function apiFetch(path, opts = {}) {
